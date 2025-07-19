@@ -1,69 +1,40 @@
 import streamlit as st
-from utils import preprocess_image, predict
+from PIL import Image, UnidentifiedImageError
+import torch
+import torchvision.transforms as transforms
+import your_model  # Replace with your actual model import
 
-# Page config with nice icon and layout
-st.set_page_config(page_title="🐶🐱 Dog vs Cat Classifier", layout="wide", page_icon="🐾")
+# Load model
+model = your_model.load_model()  # Replace with your own model loading
+model.eval()
 
-# Custom CSS for styling
-st.markdown(
-    """
-    <style>
-    .main {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        padding: 2rem;
-        border-radius: 15px;
-    }
-    .stFileUploader>div>div>input {
-        border-radius: 10px;
-    }
-    .prediction {
-        font-size: 24px;
-        font-weight: 700;
-        margin-top: 20px;
-    }
-    .confidence {
-        font-size: 20px;
-        margin-bottom: 20px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# Define transform
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
 
-st.markdown('<div class="main">', unsafe_allow_html=True)
-st.title("🐾 Dog vs Cat Image Classifier 🐾")
+st.title("Binary Image Classification")
 
-st.markdown(
-    """
-    Upload a clear image of either a **dog** or a **cat**, and our AI model will tell you which one it is with confidence.
-    """
-)
-
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    st.image(uploaded_file, caption="Your Uploaded Image", use_column_width=True)
+    try:
+        # Try to open the image
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    with st.spinner("🐕🐈 Predicting..."):
-        img_array = preprocess_image(uploaded_file)
-        label, confidence = predict(img_array)
-        
-        # Map label to friendly names and emojis
-        label_map = {
-            0: ("🐱 Cat", "#FFA500"),  # orange color
-            1: ("🐶 Dog", "#00BFFF"),  # sky blue color
-        }
-        pred_label, color = label_map.get(label, ("Unknown", "white"))
+        # Preprocess and predict
+        img_tensor = transform(image).unsqueeze(0)
 
-        st.markdown("---")
-        st.markdown(
-            f'<p class="prediction" style="color:{color};">Prediction: {pred_label}</p>',
-            unsafe_allow_html=True
-        )
-        st.markdown(
-            f'<p class="confidence" style="color:white;">Confidence: {confidence*100:.2f}%</p>',
-            unsafe_allow_html=True
-        )
-st.markdown('</div>', unsafe_allow_html=True)
+        with torch.no_grad():
+            output = model(img_tensor)
+            prediction = torch.argmax(output, dim=1).item()
+
+        label = "Class A" if prediction == 0 else "Class B"  # Adjust based on your classes
+        st.success(f"Prediction: **{label}**")
+
+    except UnidentifiedImageError:
+        st.error("❌ The uploaded file is not a valid image. Please upload a JPG or PNG file.")
+    except Exception as e:
+        st.error(f"⚠️ An unexpected error occurred: {e}")
