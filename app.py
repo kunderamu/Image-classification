@@ -16,6 +16,7 @@ transform = transforms.Compose([
 ])
 
 st.title("Dog vs Cat Image Classification")
+st.title("you should only upload either cat or dog")
 
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
